@@ -1,0 +1,342 @@
+#include <iostream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <fstream>
+#include <ctime>
+#include <limits>
+#include <chrono>
+#include <random>
+using namespace std;
+char *fname;
+int n,K;
+int j=0;
+int q=0;
+bool gr=1;
+int *decision_vector;
+int *solution_vector;
+int *profit_array;
+int *weight_array;
+int fitness_func=0;
+
+int number_of_iterations=1;
+int optimal_value=0;
+int total_weight=0;
+int tabu_length = 20;
+int *tabu_list[20];
+int **V;
+int **keep;
+int *val;
+int *wt;
+int tabuListIndex=0;
+int improvement;
+int counter,rand1,rand2,rand3;
+default_random_engine generator;
+uniform_real_distribution<double> picker;
+
+void fetch()
+{
+
+
+    ifstream knapsack_file;
+    knapsack_file.open(fname);
+
+    knapsack_file >> n;
+    knapsack_file >> K;
+
+    decision_vector=new int[n];
+    solution_vector=new int[n];
+    profit_array=new int[n];
+    weight_array=new int[n];
+    val = new int[n];
+    wt= new int[n];
+
+    for(int i=0;i<20; i++)
+      tabu_list[i]=new int[n];
+
+    for (int i=0; i < n; i++)
+    {
+        knapsack_file >> profit_array[i];
+        knapsack_file >> weight_array[i];
+    }
+}
+
+void add_tabu()
+{
+    for(int v=0; v<n;v++)
+        tabu_list[tabuListIndex][v]=decision_vector[v];
+    tabuListIndex++;
+    if(tabuListIndex==tabu_length)    //eger tabu list dolmussa
+        tabuListIndex=0;
+}
+bool check_tabulist()
+{
+    int i,j;
+    bool eq=1;
+    for(i=0;i<tabu_length;i++)
+    {
+        eq=1;
+        for(j=0;j<n;j++)
+            if(decision_vector[j]!=tabu_list[i][j])
+            {
+                eq=0;
+                break;
+            }
+    }
+    return eq;
+}
+void calc_fitness()
+{
+    total_weight=0;
+    improvement=0;
+    for(int a=0; a<n; a++)
+    {
+        total_weight=total_weight+decision_vector[a]*weight_array[a];
+    }
+    if (total_weight<=K)
+    {
+        fitness_func=0;
+        improvement=0;
+        for(int w=0; w<n ; w++)
+        {
+            fitness_func=fitness_func+decision_vector[w]*profit_array[w];
+        }
+        if(optimal_value<fitness_func)
+        {
+            optimal_value=fitness_func;
+            for(int t=0; t<n; t++)
+            {
+                solution_vector[t]=decision_vector[t];
+            }
+            improvement=1;
+        }
+        else
+            improvement=0;
+    }
+    else
+    {
+        fitness_func=0;
+        improvement=0;
+    }
+
+}
+void print()
+{
+   cout<<optimal_value<<endl;
+
+    for(int d=0; d<n; d++)
+  {
+     cout<<solution_vector[d]<<" ";
+  }
+
+}
+
+int*greedy2()
+{
+    int i,j,index;
+    double max;
+    double *fraction;
+    fraction= new double[n];
+    for(i=0;i<n;i++)
+        solution_vector[i]=0;
+    for(i=0; i<n; i++)
+       fraction[i]=(double)weight_array[i]/(double)profit_array[i];
+
+    max=fraction[0];
+    total_weight=0;
+    index=0;
+    while (1)
+    {
+        for(i=1; i<n; i++)
+        {
+            if (max>fraction[i])
+            {
+                index=i;
+                max=fraction[i];
+            }
+        }
+        if(total_weight+weight_array[index]<=K)
+        {
+            solution_vector[index]=1;
+            fraction[index]=0;
+            total_weight+=weight_array[index];
+        }
+        else
+            break;
+
+    };
+    return solution_vector;
+}
+int *greedy1()
+{
+    int i,j,index;
+
+    for(int i=0; i<n; i++)
+    {
+        wt[i]=weight_array[i];
+        val[i]=profit_array[i];
+    }
+    for( i=0; i<=n; i++)
+    {
+        for (j=0; j<= K; j++)
+        {
+            if ((i==0) || (j==0))
+            {
+                V[i][j]=0;
+                keep[i][j]=0;
+            }
+            else if(wt[i-1]<=j)
+            {
+                if (V[i-1][j] < val[i-1] + V[i-1][j-wt[i-1]])
+                {
+                    keep[i][j]=1;
+                    V[i][j]=val[i-1]+V[i-1][j-wt[i-1]];
+
+                }
+                else
+                    {
+                        keep[i][j]=0;
+                        V[i][j]=V[i-1][j];
+                    }
+            }
+            else
+            {
+                V[i][j]=V[i-1][j];
+                keep[i][j]=0;
+            }
+        }
+     }
+
+    int *arr;
+    arr=new int[n];
+    for(i=0;i<n;i++)
+        arr[i]=0;
+
+     int nn=n;
+     int kk=K;
+     while(nn!=0)
+     {
+         if(keep[nn][kk]==1)
+         {
+             nn=nn-1;
+             kk=kk-wt[nn];
+             arr[nn]=1;
+         }
+         else
+         {
+             nn=nn-1;
+         }
+     }
+
+     return arr;
+}
+
+
+void tabu_search()
+{
+    int i,j,temp,non_imp_counter=0;
+      solution_vector=greedy2();
+    for(i=0; i<n; i++)
+    {
+        total_weight=total_weight+solution_vector[i]*weight_array[i];
+        fitness_func=fitness_func+solution_vector[i]*profit_array[i];
+        optimal_value=fitness_func;
+        //solution_vector[i]=decision_vector[i];
+    }
+    total_weight=0;
+    fitness_func=0;
+    for(i=0; i<n; i++)
+    {
+        temp=rand()%10;
+        if(temp>7)
+            decision_vector[i]=1;
+        else
+            decision_vector[i]=0;
+        total_weight+=decision_vector[i]*weight_array[i];
+        if(total_weight>=K)
+        {
+            total_weight-=decision_vector[i]*weight_array[i];
+            decision_vector[i]=1-decision_vector[i];
+            for(j=i;j<n;j++)
+                decision_vector[j]=0;
+            break;
+        }
+        fitness_func=fitness_func+decision_vector[i]*profit_array[i];
+    }
+    if((optimal_value<fitness_func)&&(total_weight<=K))
+    {
+        optimal_value=fitness_func;
+        for(int t=0; t<n; t++)
+        {
+            solution_vector[t]=decision_vector[t];
+        }
+        improvement=1;
+    }
+    i=0;
+    add_tabu();
+    while(i<number_of_iterations)
+    //for(i=0;i<number_of_iterations;i++)
+    {
+
+        j=-1;
+        while (j <n)
+        //for(j=0;j<n;j++)//for each adj.
+        {
+            j++;//gg<<j<<" ";
+            decision_vector[j]=1-decision_vector[j];
+            if(check_tabulist())
+                improvement=0;
+
+            if(!check_tabulist())
+            {
+                add_tabu();
+                calc_fitness();
+            }
+            if (improvement==1)
+            {
+                j=-1;
+                counter=0;
+            }
+            if(improvement==0)
+            {
+                counter++;
+                decision_vector[j]=1-decision_vector[j];
+            }
+        }
+        if (counter == n)           //// eger hic improvement yoksa
+        {
+            //i=0;
+            non_imp_counter++;
+            if(non_imp_counter==100)
+            {
+                non_imp_counter=0;
+                break;
+            }
+
+            counter=0;
+            do
+            {
+                rand1=rand()%n;
+                rand2=rand()%n;
+                //rand3=rand()%n;
+            }
+            while (rand1==rand2);
+            decision_vector[rand1]=1-decision_vector[rand1];
+            decision_vector[rand2]=1-decision_vector[rand2];
+            //decision_vector[rand3]=1-decision_vector[rand3];
+        }
+        i++;
+    }
+}
+
+
+int main(int argc,char *argv[])
+{
+    fname=argv[1];
+    srand(0);
+    fetch();
+    tabu_search();
+    print();
+
+}
+
+
