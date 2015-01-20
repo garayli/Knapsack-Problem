@@ -12,4 +12,6 @@ All relevant parameters and their settings:
 
 Tabu length = 20
 
+NOTE: Take one of the data files which is located in the same directory here and add it to code's argument.
+
 
